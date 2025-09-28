@@ -191,6 +191,23 @@ export const parseOpReturnRaw = (opReturnRaw: string): ParsedOpReturnRaw => {
             parsed.data = opReturnRaw;
             return parsed;
         }
+        case opReturn.appPrefixesHex.nftoa: {
+            // Spec https://github.com/Bitcoin-ABC/bitcoin-abc/blob/master/doc/standards/nftoa.md
+            if (typeof stackArray[1] !== 'undefined' && typeof stackArray[2] !== 'undefined') {
+                parsed.protocol = 'NFToa';
+                const dataPush = Buffer.from(stackArray[1], 'hex').toString('utf8');
+                const noncePush = stackArray[2] === '00' ? '' : stackArray[2];
+                parsed.data = `${
+                    dataPush !== ''
+                        ? `Data: ${dataPush}${noncePush !== '' ? ', ' : ''}`
+                        : ''
+                }${noncePush !== '' ? `Nonce: ${noncePush}` : ''}`;
+                return parsed;
+            }
+            parsed.protocol = 'Invalid NFToa';
+            parsed.data = opReturnRaw;
+            return parsed;
+        }
         case opReturn.appPrefixesHex.eCashChat: {
             // Same spec as a Cashtab msg, different prefix
             if (typeof stackArray[1] !== 'undefined') {

@@ -111,6 +111,10 @@ interface PaybuttonAction {
     data: string;
     nonce: string;
 }
+interface NftoaAction {
+    data: string;
+    nonce: string;
+}
 interface EcashChatAction {
     msg: string;
 }
@@ -142,16 +146,17 @@ export interface AppAction {
     app: string;
     isValid?: boolean;
     action?:
-        | AliasAction
-        | AirdropAction
-        | PaybuttonAction
-        | EcashChatAction
-        | PaywallAction
-        | EcashChatArticleReply
-        | CashtabMsgAction
-        | XecxAction
-        | SolAddrAction
-        | UnknownAction;
+    | AliasAction
+    | AirdropAction
+    | PaybuttonAction
+    | NftoaAction
+    | EcashChatAction
+    | PaywallAction
+    | EcashChatArticleReply
+    | CashtabMsgAction
+    | XecxAction
+    | SolAddrAction
+    | UnknownAction;
 }
 
 /**
@@ -392,13 +397,13 @@ export const parseTx = (tx: Tx, hashes: string[]): ParsedTx => {
                         // on-spec airdrop msg would be at [2]
                         airdropMsg =
                             stackArray[2] === opReturn.appPrefixesHex.cashtab &&
-                            typeof stackArray[3] !== 'undefined'
+                                typeof stackArray[3] !== 'undefined'
                                 ? Buffer.from(stackArray[3], 'hex').toString(
-                                      'utf8',
-                                  )
+                                    'utf8',
+                                )
                                 : Buffer.from(stackArray[2], 'hex').toString(
-                                      'utf8',
-                                  );
+                                    'utf8',
+                                );
                         const airdropAction: AirdropAction = {
                             tokenId: airdroppedTokenId,
                             msg: airdropMsg,
@@ -459,11 +464,38 @@ export const parseTx = (tx: Tx, hashes: string[]): ParsedTx => {
                             data:
                                 stackArray[2] !== '00'
                                     ? Buffer.from(
-                                          stackArray[2],
-                                          'hex',
-                                      ).toString('utf8')
+                                        stackArray[2],
+                                        'hex',
+                                    ).toString('utf8')
                                     : '',
                             nonce: stackArray[3] !== '00' ? stackArray[3] : '',
+                        },
+                    });
+                } else {
+                    appActions.push({
+                        app,
+                        lokadId,
+                        isValid: false,
+                    });
+                }
+                break;
+            }
+            case opReturn.appPrefixesHex.nftoa: {
+                // NFToa tx
+                // https://github.com/Bitcoin-ABC/bitcoin-abc/blob/master/doc/standards/nftoa.md
+                const app = 'NFToa';
+                if (
+                    typeof stackArray[1] !== 'undefined' &&
+                    typeof stackArray[2] !== 'undefined'
+                ) {
+                    // Valid NFToaTx
+                    appActions.push({
+                        lokadId,
+                        app,
+                        isValid: true,
+                        action: {
+                            data: Buffer.from(stackArray[1], 'hex').toString('utf8'),
+                            nonce: stackArray[2] !== '00' ? stackArray[2] : '',
                         },
                     });
                 } else {
@@ -615,10 +647,10 @@ export const parseTx = (tx: Tx, hashes: string[]): ParsedTx => {
     const satoshisSent = selfSendTx
         ? outputSatoshis
         : isCoinbase
-        ? change
-        : incoming
-        ? receivedSatoshis
-        : outputSatoshis - change;
+            ? change
+            : incoming
+                ? receivedSatoshis
+                : outputSatoshis - change;
 
     // Parse for an SLP 1 agora ad setup tx
     // These are SLP1 SEND txs where
@@ -679,15 +711,15 @@ export const parseTx = (tx: Tx, hashes: string[]): ParsedTx => {
         const STAKING_REWARDS_PADDING = 0.01;
         if (
             satoshisSent >=
-                Math.floor(
-                    (STAKING_REWARDS_FACTOR - STAKING_REWARDS_PADDING) *
-                        Number(outputSatoshis),
-                ) &&
+            Math.floor(
+                (STAKING_REWARDS_FACTOR - STAKING_REWARDS_PADDING) *
+                Number(outputSatoshis),
+            ) &&
             satoshisSent <=
-                Math.floor(
-                    (STAKING_REWARDS_FACTOR + STAKING_REWARDS_PADDING) *
-                        Number(outputSatoshis),
-                )
+            Math.floor(
+                (STAKING_REWARDS_FACTOR + STAKING_REWARDS_PADDING) *
+                Number(outputSatoshis),
+            )
         ) {
             xecTxType = XecTxType.Staking;
         } else {
@@ -893,16 +925,15 @@ export const getTxNotificationMsg = (
     const renderedAmount = `${xecSent.toLocaleString(userLocale, {
         maximumFractionDigits: appConfig.cashDecimals,
         minimumFractionDigits: appConfig.cashDecimals,
-    })} XEC${
-        fiatSent !== null
-            ? ` (${`${new Intl.NumberFormat(userLocale, {
-                  style: 'currency',
-                  currency: selectedFiatTicker,
-                  minimumFractionDigits: appConfig.cashDecimals,
-                  maximumFractionDigits: appConfig.cashDecimals,
-              }).format(fiatSent)} ${selectedFiatTicker}`})`
-            : ''
-    }`;
+    })} XEC${fiatSent !== null
+        ? ` (${`${new Intl.NumberFormat(userLocale, {
+            style: 'currency',
+            currency: selectedFiatTicker,
+            minimumFractionDigits: appConfig.cashDecimals,
+            maximumFractionDigits: appConfig.cashDecimals,
+        }).format(fiatSent)} ${selectedFiatTicker}`})`
+        : ''
+        }`;
 
     /**
      * For a received tx, the "from" address is at the "replyAddress" key
@@ -960,13 +991,11 @@ export const getTxNotificationMsg = (
                 case opReturn.appPrefixesHex.airdrop: {
                     if (isValid) {
                         const { tokenId, msg } = action as AirdropAction;
-                        return `${app}: ${xecTxType} ${renderedAmount} ${
-                            xecTxType === 'Sent'
-                                ? 'to holders of'
-                                : `for holding`
-                        } ${tokenId.slice(0, 5)}...${tokenId.slice(-5)}${
-                            typeof msg !== 'undefined' ? ` | ${msg}` : ''
-                        }`;
+                        return `${app}: ${xecTxType} ${renderedAmount} ${xecTxType === 'Sent'
+                            ? 'to holders of'
+                            : `for holding`
+                            } ${tokenId.slice(0, 5)}...${tokenId.slice(-5)}${typeof msg !== 'undefined' ? ` | ${msg}` : ''
+                            }`;
                     }
                     return `${xecTxType} ${renderedAmount} | Invalid ${app}`;
                 }
@@ -974,9 +1003,16 @@ export const getTxNotificationMsg = (
                     if (isValid) {
                         const { data } = action as PaybuttonAction;
                         // We do not include nonce in notification
-                        return `${app}: ${xecTxType} ${renderedAmount}${
-                            data !== '' ? ` | ${data}` : ''
-                        }`;
+                        return `${app}: ${xecTxType} ${renderedAmount}${data !== '' ? ` | ${data}` : ''
+                            }`;
+                    }
+                    return `${xecTxType} ${renderedAmount} | Invalid ${app}`;
+                }
+                case opReturn.appPrefixesHex.nftoa: {
+                    if (isValid) {
+                        const { data } = action as NftoaAction;
+                        // We do not include nonce in notification
+                        return `${app} | ${xecTxType} ${renderedAmount} | ${data}`;
                     }
                     return `${xecTxType} ${renderedAmount} | Invalid ${app}`;
                 }
@@ -1052,20 +1088,19 @@ export const getTxNotificationMsg = (
         const renderedTokenQty =
             typeof genesisInfo !== 'undefined'
                 ? `${decimalizedTokenQtyToLocaleFormat(
-                      decimalizeTokenAmount(
-                          tokenSatoshis,
-                          genesisInfo.decimals as SlpDecimals,
-                      ),
-                      userLocale,
-                  )} `
+                    decimalizeTokenAmount(
+                        tokenSatoshis,
+                        genesisInfo.decimals as SlpDecimals,
+                    ),
+                    userLocale,
+                )} `
                 : '';
         const renderedTicker =
             typeof genesisInfo !== 'undefined'
-                ? `${
-                      genesisInfo.tokenTicker !== ''
-                          ? genesisInfo.tokenTicker
-                          : genesisInfo.tokenName
-                  }`
+                ? `${genesisInfo.tokenTicker !== ''
+                    ? genesisInfo.tokenTicker
+                    : genesisInfo.tokenName
+                }`
                 : `${tokenId.slice(0, 5)}...${tokenId.slice(-5)}`;
 
         switch (renderedTxType) {
@@ -1090,9 +1125,8 @@ export const getTxNotificationMsg = (
                 return `Created ${nftFanInputsCreated} NFT mint inputs for ${renderedTicker}`;
             }
             case 'SEND': {
-                return `${
-                    xecTxType === XecTxType.Received ? 'Received' : 'Sent'
-                } ${renderedTokenQty}${renderedTicker}`;
+                return `${xecTxType === XecTxType.Received ? 'Received' : 'Sent'
+                    } ${renderedTokenQty}${renderedTicker}`;
             }
             case 'MINT': {
                 return `🔨 Minted ${renderedTokenQty}${renderedTicker}`;
@@ -1335,20 +1369,20 @@ export const getTokenBalances = async (
             tokenId,
             typeof tokenBalanceInMap === 'undefined'
                 ? decimalizeTokenAmount(
-                      atoms.toString(),
-                      decimals as SlpDecimals,
-                  )
+                    atoms.toString(),
+                    decimals as SlpDecimals,
+                )
                 : decimalizeTokenAmount(
-                      (
-                          BigInt(
-                              undecimalizeTokenAmount(
-                                  tokenBalanceInMap,
-                                  decimals as SlpDecimals,
-                              ),
-                          ) + atoms
-                      ).toString(),
-                      decimals as SlpDecimals,
-                  ),
+                    (
+                        BigInt(
+                            undecimalizeTokenAmount(
+                                tokenBalanceInMap,
+                                decimals as SlpDecimals,
+                            ),
+                        ) + atoms
+                    ).toString(),
+                    decimals as SlpDecimals,
+                ),
         );
     }
 
