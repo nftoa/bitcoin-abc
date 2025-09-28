@@ -9,5 +9,10 @@
         "prettier": "^2.6.0",
         "prettier-plugin-tailwindcss": "^0.2.8",
         "typescript-eslint": "^8.26.0"
-    }
+    },
+    "private": true,
+    "workspaces": [
+        "cashtab",
+        "modules/*"
+    ]
 }
